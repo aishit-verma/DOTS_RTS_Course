@@ -67,6 +67,6 @@
         "*.sln": "*.csproj",
         "*.slnx": "*.csproj"
     },
-    "dotnet.defaultSolution": "DOTS_RTS_Course_1060_SetupComplete.slnx",
+    "dotnet.defaultSolution": "DOTS_RTS_Course_2240_MoveOverride.slnx",
     "dotnet.enableWorkspaceBasedDevelopment": false
 }

@@ -2,55 +2,52 @@ using Unity.Burst;
 using Unity.Entities;
 using Unity.Mathematics;
 using Unity.Transforms;
-using UnityEngine.SocialPlatforms;
+using UnityEngine;
 
-partial struct ShootAttackSystem : ISystem
-{
-
+partial struct ShootAttackSystem : ISystem {
 
     [BurstCompile]
-    public void OnUpdate(ref SystemState state)
-    {
+    public void OnUpdate(ref SystemState state) {
         EntitiesReferences entitiesReferences = SystemAPI.GetSingleton<EntitiesReferences>();
-        foreach ((RefRW<ShootAttack> shootAttack,
-        RefRO<Target> target,
-        RefRW<LocalTransform> localTransform,
-        RefRW<UnitMover> unitMover)
-        in SystemAPI.Query<RefRW<ShootAttack>,
-         RefRO<Target>,
-          RefRW<LocalTransform>,
-           RefRW<UnitMover>>())
-        {
-            if (target.ValueRO.targetEntity == Entity.Null)
-            {
+
+        foreach ((
+            RefRW<LocalTransform> localTransform,
+            RefRW <ShootAttack> shootAttack,
+            RefRO<Target> target,
+            RefRW<UnitMover> unitMover)
+            in SystemAPI.Query<
+                RefRW<LocalTransform>,
+                RefRW<ShootAttack>,
+                RefRO<Target>,
+                RefRW<UnitMover>>()) {
+
+            if (target.ValueRO.targetEntity == Entity.Null) {
                 continue;
             }
 
             LocalTransform targetLocalTransform = SystemAPI.GetComponent<LocalTransform>(target.ValueRO.targetEntity);
 
-            if (math.distance(localTransform.ValueRO.Position, targetLocalTransform.Position) > shootAttack.ValueRO.attackDistance)
-            {
+            if (math.distance(localTransform.ValueRO.Position, targetLocalTransform.Position) > shootAttack.ValueRO.attackDistance) {
+                // Too far, move closer
                 unitMover.ValueRW.targetPosition = targetLocalTransform.Position;
                 continue;
-            }
-            else
-            {
+            } else {
+                // Close enough, stop moving and attack
                 unitMover.ValueRW.targetPosition = localTransform.ValueRO.Position;
             }
 
-            float3 aimDirection = math.normalize(targetLocalTransform.Position - localTransform.ValueRO.Position);
+            float3 aimDirection = targetLocalTransform.Position - localTransform.ValueRO.Position;
+            aimDirection = math.normalize(aimDirection);
 
-            localTransform.ValueRW.Rotation = math.slerp(localTransform.ValueRO.Rotation,
-             quaternion.LookRotationSafe(aimDirection, math.up()),
-             SystemAPI.Time.DeltaTime * unitMover.ValueRO.rotationSpeed);
+            quaternion targetRotation = quaternion.LookRotation(aimDirection, math.up());
+            localTransform.ValueRW.Rotation =
+                math.slerp(localTransform.ValueRO.Rotation, targetRotation, SystemAPI.Time.DeltaTime * unitMover.ValueRO.rotationSpeed);
 
             shootAttack.ValueRW.timer -= SystemAPI.Time.DeltaTime;
-            if (shootAttack.ValueRW.timer > 0f)
-            {
+            if (shootAttack.ValueRO.timer > 0f) {
                 continue;
             }
             shootAttack.ValueRW.timer = shootAttack.ValueRO.timerMax;
-
 
 
             Entity bulletEntity = state.EntityManager.Instantiate(entitiesReferences.bulletPrefabEntity);
@@ -64,11 +61,8 @@ partial struct ShootAttackSystem : ISystem
             bulletTarget.ValueRW.targetEntity = target.ValueRO.targetEntity;
 
             shootAttack.ValueRW.onShoot.isTriggered = true;
-            shootAttack.ValueRW.onShoot.shootPosition = bulletSpawnWorldPosition;
-
-            
+            shootAttack.ValueRW.onShoot.shootFromPosition = bulletSpawnWorldPosition;
         }
     }
-
 
 }
